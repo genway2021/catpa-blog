@@ -4,6 +4,7 @@ import {
   readD1Migrations,
 } from "@cloudflare/vitest-pool-workers/config";
 import viteTsConfigPaths from "vite-tsconfig-paths";
+import { loadEnv } from "vite";
 
 export default defineWorkersConfig(async () => {
   const migrationsPath = path.join(__dirname, "migrations");
@@ -24,6 +25,7 @@ export default defineWorkersConfig(async () => {
       },
     },
     test: {
+      env: loadEnv("test", process.cwd(), ""),
       setupFiles: ["./tests/apply-migrations.ts"],
       poolOptions: {
         workers: {
