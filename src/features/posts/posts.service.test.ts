@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
 import {
   createAdminTestContext,
+  createTestContext,
   seedUser,
   waitForBackgroundTasks,
 } from "tests/test-utils";
 import * as PostService from "@/features/posts/posts.service";
+import * as TagService from "@/features/tags/tags.service";
 import * as CacheService from "@/features/cache/cache.service";
 
 describe("PostService", () => {
@@ -209,6 +211,330 @@ describe("PostService", () => {
       );
       // Should be v1 since each test has isolated storage
       expect(version).toBe("v1");
+    });
+  });
+
+  describe("Post Pagination (getPostsCursor)", () => {
+    it("should get posts with cursor pagination", async () => {
+      const publicContext = createTestContext();
+
+      // Create 5 published posts
+      for (let i = 1; i <= 5; i++) {
+        const { id } = await PostService.createEmptyPost(adminContext);
+        await PostService.updatePost(adminContext, {
+          id,
+          data: {
+            title: `Post ${i}`,
+            slug: `post-${i}`,
+            status: "published",
+            publishedAt: new Date(Date.now() - i * 1000), // Different times for ordering
+          },
+        });
+      }
+
+      // First page with limit 3
+      const page1 = await PostService.getPostsCursor(publicContext, {
+        limit: 3,
+      });
+
+      expect(page1.items).toHaveLength(3);
+      expect(page1.nextCursor).not.toBeNull();
+      expect(page1.items[0].title).toBe("Post 1"); // Most recent first
+
+      // Second page using cursor
+      const page2 = await PostService.getPostsCursor(publicContext, {
+        limit: 3,
+        cursor: page1.nextCursor!,
+      });
+
+      expect(page2.items).toHaveLength(2);
+      expect(page2.nextCursor).toBeNull(); // No more pages
+    });
+
+    it("should filter posts by tag name", async () => {
+      const publicContext = createTestContext();
+
+      // Create a tag
+      const tag = await TagService.createTag(adminContext, {
+        name: "TypeScript",
+      });
+
+      // Create 2 posts, only 1 with the tag
+      const { id: post1Id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: post1Id,
+        data: {
+          title: "TypeScript Post",
+          slug: "ts-post",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+      await TagService.setPostTags(adminContext, {
+        postId: post1Id,
+        tagIds: [tag.id],
+      });
+
+      const { id: post2Id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: post2Id,
+        data: {
+          title: "JavaScript Post",
+          slug: "js-post",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+
+      // Filter by tag
+      const result = await PostService.getPostsCursor(publicContext, {
+        tagName: "TypeScript",
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].title).toBe("TypeScript Post");
+    });
+
+    it("should return empty when no posts match tag", async () => {
+      const publicContext = createTestContext();
+
+      // Create a post without tags
+      const { id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id,
+        data: {
+          title: "No Tag Post",
+          slug: "no-tag-post",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+
+      const result = await PostService.getPostsCursor(publicContext, {
+        tagName: "NonExistentTag",
+      });
+
+      expect(result.items).toHaveLength(0);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it("should include tags in paginated results", async () => {
+      const publicContext = createTestContext();
+
+      // Create tags
+      const tag1 = await TagService.createTag(adminContext, { name: "React" });
+      const tag2 = await TagService.createTag(adminContext, { name: "Vue" });
+
+      // Create post with multiple tags
+      const { id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id,
+        data: {
+          title: "Frontend Post",
+          slug: "frontend-post",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+      await TagService.setPostTags(adminContext, {
+        postId: id,
+        tagIds: [tag1.id, tag2.id],
+      });
+
+      const result = await PostService.getPostsCursor(publicContext, {});
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].tags).toHaveLength(2);
+      expect(result.items[0].tags?.map((t) => t.name)).toContain("React");
+      expect(result.items[0].tags?.map((t) => t.name)).toContain("Vue");
+    });
+  });
+
+  describe("Admin Operations", () => {
+    it("should get posts for admin with status filter", async () => {
+      // Create draft and published posts
+      const { id: draftId } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: draftId,
+        data: { title: "Draft Post", slug: "draft-post", status: "draft" },
+      });
+
+      const { id: pubId } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: pubId,
+        data: {
+          title: "Published Post",
+          slug: "pub-post",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+
+      // Filter by draft status
+      const drafts = await PostService.getPosts(adminContext, {
+        status: "draft",
+      });
+      expect(drafts).toHaveLength(1);
+      expect(drafts[0].title).toBe("Draft Post");
+
+      // Filter by published status
+      const published = await PostService.getPosts(adminContext, {
+        status: "published",
+      });
+      expect(published).toHaveLength(1);
+      expect(published[0].title).toBe("Published Post");
+    });
+
+    it("should search posts by title keyword", async () => {
+      // Create posts with different titles
+      const { id: id1 } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: id1,
+        data: { title: "Learn TypeScript", slug: "learn-ts" },
+      });
+
+      const { id: id2 } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: id2,
+        data: { title: "Learn JavaScript", slug: "learn-js" },
+      });
+
+      const { id: id3 } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id: id3,
+        data: { title: "Python Guide", slug: "python-guide" },
+      });
+
+      // Search for "Learn"
+      const results = await PostService.getPosts(adminContext, {
+        search: "Learn",
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results.map((p) => p.title)).toContain("Learn TypeScript");
+      expect(results.map((p) => p.title)).toContain("Learn JavaScript");
+    });
+
+    it("should count posts with filters", async () => {
+      // Create mixed posts
+      for (let i = 0; i < 3; i++) {
+        const { id } = await PostService.createEmptyPost(adminContext);
+        await PostService.updatePost(adminContext, {
+          id,
+          data: {
+            title: `Draft ${i}`,
+            slug: `draft-${i}`,
+            status: "draft",
+          },
+        });
+      }
+
+      for (let i = 0; i < 2; i++) {
+        const { id } = await PostService.createEmptyPost(adminContext);
+        await PostService.updatePost(adminContext, {
+          id,
+          data: {
+            title: `Published ${i}`,
+            slug: `published-${i}`,
+            status: "published",
+            publishedAt: new Date(),
+          },
+        });
+      }
+
+      const draftCount = await PostService.getPostsCount(adminContext, {
+        status: "draft",
+      });
+      expect(draftCount).toBe(3);
+
+      const publishedCount = await PostService.getPostsCount(adminContext, {
+        status: "published",
+      });
+      expect(publishedCount).toBe(2);
+
+      const totalCount = await PostService.getPostsCount(adminContext, {});
+      expect(totalCount).toBe(5);
+    });
+
+    it("should find post by slug for admin including drafts", async () => {
+      // Create a draft post
+      const { id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id,
+        data: {
+          title: "Secret Draft",
+          slug: "secret-draft",
+          status: "draft",
+        },
+      });
+
+      // Admin should find it
+      const adminResult = await PostService.findPostBySlugAdmin(adminContext, {
+        slug: "secret-draft",
+      });
+      expect(adminResult).not.toBeNull();
+      expect(adminResult?.title).toBe("Secret Draft");
+
+      // Public API should NOT find it
+      const publicContext = createTestContext();
+      const publicResult = await PostService.findPostBySlug(publicContext, {
+        slug: "secret-draft",
+      });
+      expect(publicResult).toBeNull();
+    });
+  });
+
+  describe("Workflow Integration", () => {
+    it("should trigger POST_PROCESS_WORKFLOW when startPostProcessWorkflow called", async () => {
+      const { id } = await PostService.createEmptyPost(adminContext);
+      await PostService.updatePost(adminContext, {
+        id,
+        data: {
+          title: "Workflow Test",
+          slug: "workflow-test",
+          status: "published",
+          publishedAt: new Date(),
+        },
+      });
+
+      await PostService.startPostProcessWorkflow(adminContext, {
+        id,
+        status: "published",
+      });
+
+      expect(
+        adminContext.env.POST_PROCESS_WORKFLOW.create,
+      ).toHaveBeenCalledWith({
+        params: {
+          postId: id,
+          isPublished: true,
+        },
+      });
+    });
+
+    it("should auto-set publishedAt when publishing for the first time", async () => {
+      const { id } = await PostService.createEmptyPost(adminContext);
+
+      // Update to published WITHOUT setting publishedAt
+      await PostService.updatePost(adminContext, {
+        id,
+        data: {
+          title: "Auto Publish Date",
+          slug: "auto-publish-date",
+          status: "published",
+          // No publishedAt set
+        },
+      });
+
+      // Trigger workflow - this should auto-set publishedAt
+      await PostService.startPostProcessWorkflow(adminContext, {
+        id,
+        status: "published",
+      });
+
+      // Verify publishedAt was set
+      const post = await PostService.findPostById(adminContext, { id });
+      expect(post?.publishedAt).not.toBeNull();
     });
   });
 });

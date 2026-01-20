@@ -5,6 +5,8 @@ import type {
   GetTagsByPostIdInput,
   GetTagsInput,
   SetPostTagsInput,
+  Tag,
+  TagWithCount,
   UpdateTagInput,
 } from "@/features/tags/tags.schema";
 
@@ -20,7 +22,10 @@ import { purgeCDNCache } from "@/lib/invalidate";
 /**
  * Get all tags (cached)
  */
-export async function getTags(context: DbContext, data: GetTagsInput = {}) {
+export async function getTags(
+  context: DbContext,
+  data: GetTagsInput = {},
+): Promise<Array<Tag | TagWithCount>> {
   const {
     sortBy = "name",
     sortDir = "asc",
