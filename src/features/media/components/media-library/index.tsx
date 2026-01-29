@@ -53,13 +53,8 @@ export function MediaLibrary() {
   // View State
   const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
 
-  const handleDeleteRequest = async () => {
-    try {
-      await requestDelete(Array.from(selectedIds));
-    } catch (error) {
-      // Error is already handled in requestDelete via toast
-      console.error("Delete request failed:", error);
-    }
+  const handleDeleteRequest = () => {
+    requestDelete(Array.from(selectedIds));
   };
 
   return (

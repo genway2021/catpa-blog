@@ -7,11 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  checkMediaInUseFn,
-  deleteImageFn,
-  updateMediaNameFn,
-} from "@/features/media/media.api";
+import { deleteImageFn, updateMediaNameFn } from "@/features/media/media.api";
 import {
   MEDIA_KEYS,
   linkedMediaKeysQuery,
@@ -111,6 +107,7 @@ export function useMediaLibrary() {
       });
     },
     onError: (error) => {
+      setDeleteTarget(null);
       toast.error("删除失败", {
         description: error.message,
       });
@@ -161,32 +158,23 @@ export function useMediaLibrary() {
     }
   };
 
-  // Request delete - check if any assets are in use
-  const requestDelete = async (keys: Array<string>) => {
-    const blockedKeys: Array<string> = [];
-    const allowedKeys: Array<string> = [];
+  // Request delete - use cached linkedMediaIds for instant validation
+  const requestDelete = (keys: Array<string>) => {
+    // 使用已缓存的 linkedMediaIds 直接判断，无需额外 API 请求
+    const blockedKeys = keys.filter((key) => linkedMediaIds.has(key));
+    const allowedKeys = keys.filter((key) => !linkedMediaIds.has(key));
 
-    // 检查每个资源是否被使用
-    for (const key of keys) {
-      const inUse = await checkMediaInUseFn({ data: { key } });
-      if (inUse) {
-        blockedKeys.push(key);
-      } else {
-        allowedKeys.push(key);
-      }
-    }
-
+    // 如果选中了任何受保护资源，只显示 toast 警告，不弹出确认框
     if (blockedKeys.length > 0) {
-      toast.warning("检测到受保护的资源", {
-        description: `${blockedKeys.length} 个项目当前正在被文章使用，无法删除。`,
+      toast.warning("无法删除受保护的资源", {
+        description: `${blockedKeys.length} 个项目正在被文章使用。请先取消选择这些项目。`,
       });
+      return [];
     }
 
+    // 只有当所有选中项都是未引用时才弹出确认框
     if (allowedKeys.length > 0) {
       setDeleteTarget(allowedKeys);
-    } else {
-      // Clear any stale deleteTarget when all keys are blocked
-      setDeleteTarget(null);
     }
 
     return allowedKeys;

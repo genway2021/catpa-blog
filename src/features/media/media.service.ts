@@ -42,6 +42,12 @@ export async function deleteImage(
   context: DbContext & { executionCtx: ExecutionContext },
   key: string,
 ) {
+  // 后端兜底检查：防止删除正在被引用的媒体
+  const inUse = await PostMediaRepo.isMediaInUse(context.db, key);
+  if (inUse) {
+    throw new Error("Cannot delete media that is in use");
+  }
+
   await MediaRepo.deleteMedia(context.db, key);
   context.executionCtx.waitUntil(
     Storage.deleteFromR2(context.env, key).catch(console.error),

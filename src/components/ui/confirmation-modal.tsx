@@ -35,7 +35,7 @@ const ConfirmationModalInternal: React.FC<ConfirmationModalProps> = ({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-background/90 backdrop-blur-sm"
-        onClick={isLoading ? undefined : onClose}
+        onClick={isLoading ? undefined : () => onClose()}
       />
 
       {/* Modal Content */}
@@ -61,7 +61,7 @@ const ConfirmationModalInternal: React.FC<ConfirmationModalProps> = ({
             </h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => onClose()}
             disabled={isLoading}
             className="p-2 -mr-2 text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
           >
@@ -85,14 +85,14 @@ const ConfirmationModalInternal: React.FC<ConfirmationModalProps> = ({
         {/* Footer */}
         <div className="px-6 pb-6 flex justify-end gap-3">
           <button
-            onClick={onClose}
+            onClick={() => onClose()}
             disabled={isLoading}
             className="px-4 py-2.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 hover:text-foreground transition-colors disabled:opacity-50"
           >
             取消
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm()}
             disabled={isLoading}
             className={`
               flex items-center justify-center gap-2 px-6 py-2.5 text-[10px] font-mono uppercase tracking-widest transition-all

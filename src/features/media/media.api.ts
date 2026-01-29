@@ -31,15 +31,6 @@ export const getMediaFn = createServerFn()
   .inputValidator(GetMediaListInputSchema)
   .handler(({ data, context }) => MediaService.getMediaList(context, data));
 
-export const checkMediaInUseFn = createServerFn()
-  .middleware([adminMiddleware])
-  .inputValidator(
-    z.object({
-      key: z.string().min(1, "Image key is required"),
-    }),
-  )
-  .handler(({ data, context }) => MediaService.isMediaInUse(context, data.key));
-
 export const getLinkedPostsFn = createServerFn()
   .middleware([adminMiddleware])
   .inputValidator(

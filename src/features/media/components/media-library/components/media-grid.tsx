@@ -83,6 +83,10 @@ const MediaCard = memo(
             e.stopPropagation();
             onToggleSelect(asset.key);
           }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
         >
           <div
             className={`w-4 h-4 border flex items-center justify-center transition-colors ${
