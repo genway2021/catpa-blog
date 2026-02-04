@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "my-blog",
-  "compatibility_date": "2025-10-11",
+  "name": "catpa",
+  "compatibility_date": "2026-02-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
   "observability": {
@@ -23,7 +23,7 @@
   ],
   "r2_buckets": [
     {
-      "bucket_name": "bucket-name-placeholder",
+      "bucket_name": "blog",
       "binding": "R2",
       "remote": true,
     },
@@ -31,7 +31,7 @@
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "KV_NAMESPACE_ID",
+      "id": "7335c83801eb4cb69b17032afcb76f16",
       "remote": true,
     },
   ],
