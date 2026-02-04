@@ -9,14 +9,14 @@
   },
   "routes": [
     {
-      "pattern": "DOMAIN_PLACEHOLDER",
+      "pattern": "catpa.org",
       "custom_domain": true,
     },
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_id": "D1_DATABASE_ID",
+      "database_id": "4b048e97-72e3-4d31-85c4-91f3d302367e",
       "migrations_dir": "migrations",
       "remote": true,
     },
@@ -24,7 +24,7 @@
   "r2_buckets": [
     {
       "bucket_name": "blog",
-      "binding": "R2",
+      "binding": "BUCKET",
       "remote": true,
     },
   ],
