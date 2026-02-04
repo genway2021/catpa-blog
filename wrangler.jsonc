@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "catpa",
+  "name": "catpa-blog",
   "compatibility_date": "2026-02-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
